@@ -9,8 +9,7 @@ const config = {
         issuer: process.env.JWT_ISSUER
     },
     port: process.env.PORT || 3000,
-    prefix: process.env.API_PREFIX || 'api',
-    databaseUri: process.env.MONGODB_URI
+    prefix: process.env.API_PREFIX || 'api'
 };
 
 export default config;

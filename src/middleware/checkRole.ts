@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { User } from '../models/user';
 import { CustomRequest } from './checkJwt';
+import { getUser, Roles } from '../state/users';
 
-export const checkRole = (roles: Array<string>) => {
+export const checkRole = (roles: Array<Roles>) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         // Find the user within the database
-        const user = await User.findById((req as CustomRequest).token.payload.userId);
+        const user = getUser((req as CustomRequest).token.payload.userId);
 
         if (!user) {
             res.status(404)

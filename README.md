@@ -2,38 +2,6 @@
 
 Sample Express REST API with JWT authentication/authorization.
 
-## MongoDB Setup
-
-### Local Setup
-
-Start by checking the MongoDB version you are using:
-
-```bash
-mongo --version
-```
-
-You might receive a similar response to this:
-
-```bash
-MongoDB shell version v5.0.2
-Build Info: {
-    "version": "5.0.2",
-    "gitVersion": "6d9ec525e78465dcecadcff99cce953d380fedc8",
-    "modules": [],
-    "allocator": "system",
-    "environment": {
-        "distarch": "x86_64",
-        "target_arch": "x86_64"
-    }
-}
-```
-
-If no version present, you can install it from [here](https://www.mongodb.com/docs/manual/installation/);
-
-### Cloud Setup
-
-A MongoDB cluster hosted on the cloud can also be used, which can be obtained (for free as a Shared Cluster) in [MongoDB Cloud](https://www.mongodb.com/cloud).
-
 ## Basic Project
 
 ### Creating the Project
@@ -47,8 +15,8 @@ npm init -y
 The following dependencies will be used:
 
 ```bash
-npm install typescript ts-node-dev @types/bcrypt @types/express @types/mongoose --save-dev
-npm install mongoose bcrypt body-parser dotenv express mongoose
+npm install typescript ts-node-dev @types/bcrypt @types/express --save-dev
+npm install bcrypt body-parser dotenv express
 ```
 
 A `tsconfig` file is required for TypeScript:
@@ -77,9 +45,7 @@ const config = {
     },
     // API information such as port and prefix
     port: process.env.PORT || 3000,
-    prefix: process.env.API_PREFIX || 'api',
-    // Database connection URI for Mongo
-    databaseUri: process.env.MONGODB_URI
+    prefix: process.env.API_PREFIX || 'api'
 };
 
 export default config;
@@ -92,7 +58,148 @@ Note that the following environment variables should be set either as environmen
 -   `JWT_ISSUER`
 -   `PORT`
 -   `API_PREFIX`
--   `MONGODB_URI`
+
+### Project Storage
+
+Given this is a simple tutorial, we'll avoid having a fully-fledged database, so we'll store the data locally in the server state. For this we have a file `src/state/users.ts` which has all the logic for storing and querying our users:
+
+```typescript
+import bcrypt from 'bcrypt';
+import { NotFoundError } from '../exceptions/notFoundError';
+import { ValidationError } from '../exceptions/validationError';
+
+export interface IUser {
+    id: string;
+    username: string;
+    password: string;
+    role: Roles;
+}
+
+export enum Roles {
+    ADMIN = 'ADMIN',
+    USER = 'USER'
+}
+
+let users: { [id: string]: IUser } = {
+    '0': {
+        id: '0',
+        username: 'testuser1',
+        password: '$2b$12$ov6s318JKzBIkMdSMvHKdeTMHSYMqYxCI86xSHL9Q1gyUpwd66Q2e',   
+        // testuser1_password
+        role: Roles.USER
+    },
+    '1': {
+        id: '1',
+        username: 'testuser2',
+        password: '$2b$12$63l0Br1wIniFBFUnHaoeW.55yh8.a3QcpCy7hYt9sfaIDg.rnTAPC',   
+        // testuser2_password
+        role: Roles.USER
+    },
+    '2': {
+        id: '2',
+        username: 'testuser3',
+        password: '$2b$12$fTu/nKtkTsNO91tM7wd5yO6LyY1HpyMlmVUE9SM97IBg8eLMqw4mu',   
+        // testuser3_password
+        role: Roles.USER
+    },
+    '3': {
+        id: '3',
+        username: 'testadmin1',
+        password: '$2b$12$tuzkBzJWCEqN1DemuFjRuuEs4z3z2a3S5K0fRukob/E959dPYLE3i',   
+        // testadmin1_password
+        role: Roles.ADMIN
+    },
+    '4': {
+        id: '4',
+        username: 'testadmin2',
+        password: '$2b$12$.dN3BgEeR0YdWMFv4z0pZOXOWfQUijnncXGz.3YOycHSAECzXQLdq',   
+        // testadmin2_password
+        role: Roles.ADMIN
+    },
+};
+let nextUserId = Object.keys(users).length;
+
+export const getUser = (id: string): IUser => {
+    if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
+    return users[id];
+};
+
+export const getUserByUsername = (username: string): IUser | undefined => {
+    const possibleUsers = Object.values(users).filter((user) => user.username === username);
+    return possibleUsers.length > 0 ? possibleUsers[0] : undefined;
+};
+
+export const getAllUsers = (restrictedView: boolean): IUser[] => {
+    return Object.values(users).filter((user) => (restrictedView && user.role === Roles.USER) || !restrictedView);
+};
+
+export const createUser = async (username: string, password: string, role: Roles): Promise<IUser> => {
+    username = username.trim();
+    password = password.trim();
+
+    // todo: Add checks according to use case
+    if (username.length === 0) throw new ValidationError('Invalid username');
+    else if (password.length === 0) throw new ValidationError('Invalid password');
+    // Check for duplicates
+    if (getUserByUsername(username) != undefined) throw new ValidationError('Username is taken');
+
+    // Generate a user id
+    const id: string = nextUserId.toString();
+    nextUserId++;
+    // todo: hash password
+    users[id] = {
+        username,
+        password: await bcrypt.hash(password, 12),
+        role,
+        id
+    };
+    return users[id];
+};
+
+export const updateUser = (id: string, username: string, role: Roles): IUser => {
+    // Check user exists
+    if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
+
+    // todo: Add checks according to use case
+    if (username.trim().length === 0) throw new ValidationError('Invalid username');
+    username = username.trim();
+    const userIdWithUsername = getUserByUsername(username)?.id;
+    if (userIdWithUsername !== undefined && userIdWithUsername !== id) throw new ValidationError('Username is taken');
+
+    // Apply changes
+    users[id].username = username;
+    users[id].role = role;
+
+    return users[id];
+};
+
+export const deleteUser = (id: string) => {
+    if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
+    delete users[id];
+};
+
+export const isPasswordCorrect = async (user: IUser, password: string): Promise<boolean> => {
+    return await bcrypt.compare(password, user.password);
+};
+
+export const changePassword = async (id: string, password: string) => {
+    password = password.trim();
+    // todo: Add checks according to use case
+    if (password.length === 0) throw new ValidationError('Invalid password');
+
+    // Store encrypted password
+    users[id].password = await bcrypt.hash(password, 12);
+};
+```
+
+Note that there are some set users, which have their passwords generated as follows using the `Node` CLI:
+
+```javascript
+await require('bcrypt').hash('PASSWORD_TO_HASH', 12)
+```
+
+
+
 
 ### Project Entrypoint
 
