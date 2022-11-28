@@ -2,6 +2,17 @@
 
 Sample Express REST API with JWT authentication/authorization.
 
+Endpoints once the project is finished:
+-   `/PREFIX/users GET`: Get all users (`PROTECTED`)
+-   `/PREFIX/users POST`: Create a new user
+-   `/PREFIX/users/{ID} DELETE`: Delete a specific user (`PROTECTED`)
+-   `/PREFIX/users/{ID} PATCH`: Update a specific user (`PROTECTED`)
+-   `/PREFIX/users/{ID} GET`: Get a specific user (`PROTECTED`)
+-   `/PREFIX/auth/login POST`: Log in a user
+-   `/PREFIX/auth/change-password POST`: Changes password for a user (`PROTECTED`)
+
+Endpoints marked as `PROTECTED` require an `Authorization: Bearer <TOKEN>` header.
+
 ## Basic Project
 
 ### Creating the Project
@@ -61,7 +72,7 @@ Note that the following environment variables should be set either as environmen
 
 ### Project Storage
 
-Given this is a simple tutorial, we'll avoid having a fully-fledged database, so we'll store the data locally in the server state. For this we have a file `src/state/users.ts` which has all the logic for storing and querying our users:
+Given this is a simple tutorial, we'll avoid having a fully-fledged database, so we'll store the data locally in the server state. For this we have a file `src/state/users.ts` which has all the logic for storing and querying our users (the CRUD):
 
 ```typescript
 import bcrypt from 'bcrypt';
@@ -198,8 +209,12 @@ Note that there are some set users, which have their passwords generated as foll
 await require('bcrypt').hash('PASSWORD_TO_HASH', 12)
 ```
 
+There might be some exceptions, such as the following ones, which we'll create in the upcoming sections:
 
-
+```typescript
+import { NotFoundError } from '../exceptions/notFoundError';
+import { ValidationError } from '../exceptions/validationError';
+```
 
 ### Project Entrypoint
 
@@ -207,33 +222,18 @@ Create a new file `src/index.ts` with the entrypoint of the API:
 
 ```typescript
 import express from 'express';
-import mongoose, { ConnectOptions } from 'mongoose';
 import { json } from 'body-parser';
 
+// Middleware
 import config from './config';
 
 const app = express();
 app.use(json());
 
-mongoose
-    .connect(
-        config.databaseUri!,
-        // Pass the options as ConnectOptions to avoid TS errors
-        {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        } as ConnectOptions
-    )
-    .then((res) => {
-        console.log('Connected to Database - Initial Connection');
-        // Listen only if DB connection works
-        app.listen(config.port, () => {
-            console.log(`server is listening on port ${config.port}`);
-        });
-    })
-    .catch((err) => {
-        console.log(`Initial Database connection error occured -`, err);
-    });
+// Listen only if DB connection works
+app.listen(config.port, () => {
+    console.log(`server is listening on port ${config.port}`);
+});
 ```
 
 Update the `package.json` file to include the following configuration:
@@ -271,10 +271,7 @@ import { Request, Response, NextFunction } from 'express';
 import { CustomError, IResponseError } from '../exceptions/customError';
 
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
-    // Log the error to console, this could be configured to be done only in a production environment
     console.error(err);
-    // If the error is a known, custom error, handle it that way
-    // Otherwise return a generic 500 error
     if (!(err instanceof CustomError)) {
         res.status(500).send(
             JSON.stringify({
@@ -287,9 +284,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
             message: customError.message
         } as IResponseError;
         // Check if more info to return
-        if (customError.additionalInfo) {
-            response.additionalInfo = customError.additionalInfo;
-        }
+        if (customError.additionalInfo) response.additionalInfo = customError.additionalInfo;
         res.status(customError.status).type('json').send(JSON.stringify(response));
     }
 }
@@ -309,7 +304,7 @@ export class CustomError extends Error {
         this.status = status;
         this.additionalInfo = additionalInfo;
     }
-}
+};
 
 export interface IResponseError {
     message: string;
@@ -324,12 +319,16 @@ With all this set in place, we can add this middleware to our API. Within `src/i
 import { errorHandler } from './middleware/errorHandler';
 // ... more imports
 
+// ...
+
 // Add error handling, must be the last middleware to be called
 // This will make sure the errors will always be handled properly
 app.use(errorHandler);
 
-mongoose
-    .connect(...
+// Listen only if DB connection works
+app.listen(config.port, () => {
+    console.log(`server is listening on port ${config.port}`);
+});
 ```
 
 #### Custom Errors
@@ -386,113 +385,17 @@ We will be creating four other custom errors, but one can add as many as you wan
     }
     ```
 
-### Models
+-   `src/exceptions/validationError.ts`: Handles status code `400` errors that generate from validations.
 
-This project will have a basic CRUD for users, so we need to define a user model in `src/models/user.ts`:
+    ```typescript
+    import { CustomError } from './customError';
 
-```typescript
-import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
-import { ROLES } from '../utils/constants';
-
-export interface IUser {
-    username: string;
-    password: string;
-    role: string;
-}
-
-interface userModelInterface extends mongoose.Model<UserDoc> {
-    build(attr: IUser): UserDoc;
-}
-
-interface UserDoc extends mongoose.Document {
-    username: string;
-    password: string;
-    role: string;
-    isPasswordCorrect(providedPassword: string): Promise<boolean>;
-}
-
-const userSchema = new mongoose.Schema<IUser>(
-    {
-        username: {
-            type: String,
-            required: true,
-            unique: true,
-            trim: true,
-            lowercase: true,
-            minLength: [8, 'Username too short'],
-            maxLength: [40, 'Username too long'],
-            validate: {
-                // Make sure there is no duplicate user with that username
-                validator: async function (v: string): Promise<boolean> {
-                    let doc: any = await User.findOne({ username: v });
-                    // @ts-ignore
-                    if (doc) return this._id.toString() === doc._id.toString();
-                    else return Boolean(!doc);
-                },
-                message: 'Username already in use.'
-            }
-        },
-        // Passwords are hashed with bcrypt, see below
-        password: {
-            type: String,
-            required: true,
-            minLength: [8, 'Password too short'],
-            maxLength: [120, 'Password too long']
-        },
-        // Role will be saved for authorization
-        role: {
-            type: String,
-            required: true,
-            enum: [ROLES.USER, ROLES.ADMIN],
-            default: ROLES.USER
+    export class ValidationError extends CustomError {
+        constructor(message: string) {
+            super(message, 400);
         }
-    },
-    // Created at and updated at timestamps
-    { timestamps: true }
-);
-
-// Hash the password prior to saving the user
-userSchema.pre('save', async function (next) {
-    if (!this.isModified('password') || !this.password) return next();
-    this.password = await bcrypt.hash(this.password, 12);
-    next();
-});
-
-// Compare passwords, instance method for the user
-userSchema.method('isPasswordCorrect', async function (providedPassword: string): Promise<boolean> {
-    return await bcrypt.compare(providedPassword, this.password);
-});
-
-// Static method to build a user
-userSchema.statics.build = (attr: IUser) => {
-    return new User(attr);
-};
-
-userSchema.set('toJSON', {
-    transform: (document, returnedObject) => {
-        returnedObject.id = returnedObject._id.toString();
-        delete returnedObject._id;
-        delete returnedObject.__v;
-        delete returnedObject.password;
-        delete returnedObject.createdAt;
-        delete returnedObject.updatedAt;
     }
-});
-
-const User = mongoose.model<UserDoc, userModelInterface>('User', userSchema);
-
-export { User };
-```
-
-The User model contains roles for the user (which will be used for authorization later). We need to create our constants file with our role names. The file is `src/utils/constants.ts` and contains:
-
-```typescript
-export const ROLES = {
-    ADMIN: 'ADMIN',
-    USER: 'USER'
-};
-```
+    ```
 
 ### Routes
 
@@ -523,6 +426,8 @@ app.use(json());
 app.use('/' + config.prefix, routes);
 
 app.use(errorHandler);
+
+// ...
 ```
 
 We also need to create a `src/routes/user.ts` file with each of the `/users` route prefix. These routes make use of the `asyncHandler` we created earlier.
@@ -558,17 +463,13 @@ One of the last things to configure is the `src/controllers/UserController.ts`, 
 
 ```typescript
 import { NextFunction, Request, Response } from 'express';
-import { Error } from 'mongoose';
-import { ClientError } from '../exceptions/clientError';
-import { NotFoundError } from '../exceptions/notFoundError';
-import { User, IUser } from '../models/user';
-import { ROLES } from '../utils/constants';
-import { processErrors } from '../utils/errorProcessing';
+import { getAllUsers, Roles, getUser, createUser, updateUser, deleteUser } from '../state/users';
 
 class UserController {
     static listAll = async (req: Request, res: Response, next: NextFunction) => {
         // Execute the query
-        const users = await User.find().select(['_id', 'username', 'role']);
+        // No limits to the types of users it returns
+        const users = getAllUsers(false);
 
         // Send the users object
         res.status(200).type('json').send(users);
@@ -578,67 +479,39 @@ class UserController {
         // Get the ID from the url
         const id: string = req.params.id;
 
-        // Mongoose automatically casts the id to ObjectID
-        const user = await User.findById(id).select(['_id', 'username', 'role']);
-        if (!user) throw new NotFoundError(`User with ID ${id} not found`);
+        // Get the usser
+        const user = getUser(id);
 
-        res.status(200).type('json').send(user?.toJSON());
+        res.status(200).type('json').send(user);
     };
 
     static newUser = async (req: Request, res: Response, next: NextFunction) => {
         // Get parameters from the body
         let { username, password } = req.body;
-        let user;
-
-        try {
-            user = User.build({ username, password } as IUser);
-
-            // Save the user
-            await user.save();
-        } catch (e: any) {
-            console.error(e);
-            const error = e as Error.ValidationError;
-            throw new ClientError(processErrors(error));
-        }
+        const user = await createUser(username, password, Roles.USER);
 
         // If all ok, send 201 response
-        res.status(201).type('json').send(user.toJSON());
+        res.status(201).type('json').send(user);
     };
 
     static editUser = async (req: Request, res: Response, next: NextFunction) => {
         // Get the ID from the url
         const id = req.params.id;
+
         // Get values from the body
         const { username, role } = req.body;
 
-        // Mongoose automatically casts the id to ObjectID
-        const user = await User.findById(id).select(['_id', 'username', 'role']);
-        if (!user) throw new NotFoundError(`User with ID ${id} not found`);
+        const user = getUser(id);
+        const updatedUser = updateUser(id, username || user.username, role || user.role);
 
-        // Edit the properties
-        if (username) user.username = username;
-        if (role) user.role = role;
-
-        // Save and catch all validation errors
-        try {
-            await user.save();
-        } catch (e) {
-            const error = e as Error.ValidationError;
-            throw new ClientError(processErrors(error));
-        }
-
-        res.status(204).type('json').send(user.toJSON());
+        res.status(204).type('json').send(updatedUser);
     };
 
     static deleteUser = async (req: Request, res: Response, next: NextFunction) => {
         // Get the ID from the url
         const id = req.params.id;
 
-        // Mongoose automatically casts the id to ObjectID
-        const user = await User.findById(id).select(['_id', 'username', 'role']);
-        if (!user) throw new NotFoundError(`User with ID ${id} not found`);
-
-        await user.delete();
+        deleteUser(id);
 
         // After all send a 204 (no content, but accepted) response
         res.status(204).type('json').send();
@@ -648,22 +521,7 @@ class UserController {
 export default UserController;
 ```
 
-In order to properly return errors from Mongoose's validations, we can use a custom error processor, that takes properly formats the errors. This file is `src/utils/errorProcessing.ts`:
-
-```typescript
-import { Error } from 'mongoose';
-
-export const processErrors = (error: Error.ValidationError): string => {
-    if (!error) return '';
-    const keys = Object.keys(error.errors);
-    let response = '';
-    for (let i = 0; i < keys.length; i++) {
-        if (i > 0) response += '. ';
-        response += error.errors[keys[i]].message;
-    }
-    return response;
-};
-```
+Validation errors are handled directly in the state layer we defined earlier.
 
 This configuration exposes the following endpoints:
 
@@ -676,6 +534,12 @@ This configuration exposes the following endpoints:
 ## JWT Configuration
 
 Having a basic implementation of the API, we need to implement authentication and authorization to have proper security. For this, we'll have JSON Web Tokens (JWT) for both purposes. The API will emit a JWT when the user logs in and will require it for authorization.
+
+The JWT configuration will require an authorization header with a bearer token:
+
+```
+Authorization: Bearer <TOKEN>
+```
 
 ### JWT Secrets
 
@@ -696,14 +560,11 @@ For our basic authentication and authorization we need an endpoint for users to 
 ```typescript
 import { NextFunction, Request, Response } from 'express';
 import { sign } from 'jsonwebtoken';
-
-import { User } from '../models/user';
+import { CustomRequest } from '../middleware/checkJwt';
 import config from '../config';
 import { ClientError } from '../exceptions/clientError';
 import { UnauthorizedError } from '../exceptions/unauthorizedError';
-import { NotFoundError } from '../exceptions/notFoundError';
-import { processErrors } from '../utils/errorProcessing';
-import { Error } from 'mongoose';
+import { getUserByUsername, isPasswordCorrect, changePassword } from '../state/users';
 
 class AuthController {
     static login = async (req: Request, res: Response, next: NextFunction) => {
@@ -712,15 +573,13 @@ class AuthController {
         if (!(username && password)) throw new ClientError('Username and password are required');
 
         // Get user from database
-        const user = await User.findOne({ username: username }).exec();
+        const user = getUserByUsername(username);
 
         // Check if encrypted password match
-        if (!user || !(await user.isPasswordCorrect(password))) {
-            throw new UnauthorizedError("Username and password don't match");
-        }
+        if (!user || !(await isPasswordCorrect(user.id, password))) throw new UnauthorizedError("Username and password don't match");
 
         // Sing JWT, valid for 1 hour
-        const token = sign({ userId: user._id.toString(), username: user.username, role: user.role }, config.jwt.secret!, {
+        const token = sign({ userId: user.id, username: user.username, role: user.role }, config.jwt.secret!, {
             expiresIn: '1h',
             notBefore: '0', // Cannot use before now, can be configured to be deferred
             algorithm: 'HS256',
@@ -734,31 +593,17 @@ class AuthController {
 
     static changePassword = async (req: Request, res: Response, next: NextFunction) => {
         // Get ID from JWT
-        const id = res.locals.jwtPayload.userId;
+        const id = (req as CustomRequest).token.payload.userId;
 
         // Get parameters from the body
         const { oldPassword, newPassword } = req.body;
         if (!(oldPassword && newPassword)) throw new ClientError("Passwords don't match");
 
-        // Get user from the database
-        const user = await User.findById(id);
-        if (!user) {
-            throw new NotFoundError(`User with ID ${id} not found`);
-        } else if (!(await user.isPasswordCorrect(oldPassword))) {
-            throw new UnauthorizedError("Old password doesn't match");
-        }
+        // Check if password is ok
+        if (!(await isPasswordCorrect(id, oldPassword))) throw new UnauthorizedError("Old password doesn't match");
 
-        // Store new pasword
-        user.password = newPassword;
-
-        try {
-            // Just save, validation will happen when saving
-            await user.save();
-        } catch (e) {
-            console.error(e);
-            const error = e as Error.ValidationError;
-            throw new ClientError(processErrors(error));
-        }
+        // Call to update the password
+        await changePassword(id, newPassword);
 
         res.status(204).send();
     };
@@ -773,6 +618,7 @@ To include these handlers in our routes, we need to create a `src/routes/auth.ts
 ```typescript
 import { Router } from 'express';
 import AuthController from '../controllers/AuthController';
+import { checkJwt } from '../middleware/checkJwt';
 
 // Middleware
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -782,7 +628,7 @@ const router = Router();
 router.post('/login', asyncHandler(AuthController.login));
 
 // Change my password
-router.post('/change-password', [], asyncHandler(AuthController.changePassword));
+router.post('/change-password', [checkJwt], asyncHandler(AuthController.changePassword));
 
 export default router;
 ```
@@ -818,7 +664,6 @@ import { Request, Response, NextFunction } from 'express';
 import { verify, JwtPayload } from 'jsonwebtoken';
 import config from '../config';
 
-// Custom request interface to include the token in the requests
 export interface CustomRequest extends Request {
     token: JwtPayload;
 }
@@ -858,13 +703,13 @@ Then we create the `src/middleware/checkRole.ts` middleware:
 
 ```typescript
 import { Request, Response, NextFunction } from 'express';
-import { User } from '../models/user';
 import { CustomRequest } from './checkJwt';
+import { getUser, Roles } from '../state/users';
 
-export const checkRole = (roles: Array<string>) => {
+export const checkRole = (roles: Array<Roles>) => {
     return async (req: Request, res: Response, next: NextFunction) => {
         // Find the user within the database
-        const user = await User.findById((req as CustomRequest).token.payload.userId);
+        const user = getUser((req as CustomRequest).token.payload.userId);
 
         if (!user) {
             res.status(404)
@@ -914,6 +759,7 @@ Lastly, we need to update our routes files (`src/routes/auth.ts` and `src/routes
     ```typescript
     import { Router } from 'express';
     import UserController from '../controllers/UserController';
+    import { Roles } from '../state/users';
 
     // Middleware
     import { asyncHandler } from '../middleware/asyncHandler';
@@ -923,19 +769,19 @@ Lastly, we need to update our routes files (`src/routes/auth.ts` and `src/routes
     const router = Router();
 
     // Get all users
-    router.get('/', [checkJwt, checkRole(['USER', 'ADMIN'])], asyncHandler(UserController.listAll));
+    router.get('/', [checkJwt, checkRole([Roles.USER, Roles.ADMIN])], asyncHandler(UserController.listAll));
 
     // Get one user
-    router.get('/:id([0-9a-z]{24})', [checkJwt, checkRole(['USER', 'ADMIN'])], asyncHandler(UserController.getOneById));
+    router.get('/:id([0-9]{1,24})', [checkJwt, checkRole([Roles.USER, Roles.ADMIN])], asyncHandler(UserController.getOneById));
 
     // Create a new user
     router.post('/', [], asyncHandler(UserController.newUser));
 
     // Edit one user
-    router.patch('/:id([0-9a-z]{24})', [checkJwt, checkRole(['USER', 'ADMIN'])], asyncHandler(UserController.editUser));
+    router.patch('/:id([0-9]{1,24})', [checkJwt, checkRole([Roles.USER, Roles.ADMIN])], asyncHandler(UserController.editUser));
 
     // Delete one user
-    router.delete('/:id([0-9a-z]{24})', [checkJwt, checkRole(['ADMIN'])], asyncHandler(UserController.deleteUser));
+    router.delete('/:id([0-9]{1,24})', [checkJwt, checkRole([Roles.ADMIN])], asyncHandler(UserController.deleteUser));
 
     export default router;
     ```
@@ -950,27 +796,15 @@ We update the `src/controllers/UserController.ts` file to look like this:
 
 ```typescript
 import { NextFunction, Request, Response } from 'express';
-import { Error } from 'mongoose';
-import { ClientError } from '../exceptions/clientError';
 import { ForbiddenError } from '../exceptions/forbiddenError';
-import { NotFoundError } from '../exceptions/notFoundError';
 import { CustomRequest } from '../middleware/checkJwt';
-import { User, IUser } from '../models/user';
-import { ROLES } from '../utils/constants';
-import { processErrors } from '../utils/errorProcessing';
+import { getAllUsers, Roles, getUser, createUser, updateUser, deleteUser } from '../state/users';
 
 class UserController {
     static listAll = async (req: Request, res: Response, next: NextFunction) => {
-        // Define the query to execute based on the role
-        let query;
-        if ((req as CustomRequest).token.payload.role === ROLES.USER) {
-            query = User.find({role: ROLES.USER})
-        } else {
-            query = User.find()
-        }
-
         // Execute the query
-        const users = await query.select(['_id', 'username', 'role']);
+        // If the user is a USER role, only return other users
+        const users = getAllUsers((req as CustomRequest).token.payload.role === Roles.USER);
 
         // Send the users object
         res.status(200).type('json').send(users);
@@ -981,35 +815,23 @@ class UserController {
         const id: string = req.params.id;
 
         // Validate permissions
-        if ((req as CustomRequest).token.payload.role === ROLES.USER && req.params.id !== (req as CustomRequest).token.payload.userId) {
+        if ((req as CustomRequest).token.payload.role === Roles.USER && req.params.id !== (req as CustomRequest).token.payload.userId) {
             throw new ForbiddenError('Not enough permissions');
         }
 
-        // Mongoose automatically casts the id to ObjectID
-        const user = await User.findById(id).select(['_id', 'username', 'role']);
-        if (!user) throw new NotFoundError(`User with ID ${id} not found`);
+        // Get the usser
+        const user = getUser(id);
 
-        res.status(200).type('json').send(user?.toJSON());
+        res.status(200).type('json').send(user);
     };
 
     static newUser = async (req: Request, res: Response, next: NextFunction) => {
         // Get parameters from the body
         let { username, password } = req.body;
-        let user;
-
-        try {
-            user = User.build({ username, password } as IUser);
-
-            // Save the user
-            await user.save();
-        } catch (e: any) {
-            console.error(e);
-            const error = e as Error.ValidationError;
-            throw new ClientError(processErrors(error));
-        }
+        const user = await createUser(username, password, Roles.USER);
 
         // If all ok, send 201 response
-        res.status(201).type('json').send(user.toJSON());
+        res.status(201).type('json').send(user);
     };
 
     static editUser = async (req: Request, res: Response, next: NextFunction) => {
@@ -1017,7 +839,7 @@ class UserController {
         const id = req.params.id;
 
         // Validate permissions
-        if ((req as CustomRequest).token.payload.role === ROLES.USER && req.params.id !== (req as CustomRequest).token.payload.userId) {
+        if ((req as CustomRequest).token.payload.role === Roles.USER && req.params.id !== (req as CustomRequest).token.payload.userId) {
             throw new ForbiddenError('Not enough permissions');
         }
 
@@ -1025,38 +847,21 @@ class UserController {
         const { username, role } = req.body;
 
         // Verify you cannot make yourself an admin if you are a user
-        if ((req as CustomRequest).token.payload.role === ROLES.USER && role === ROLES.ADMIN) {
+        if ((req as CustomRequest).token.payload.role === Roles.USER && role === Roles.ADMIN) {
             throw new ForbiddenError('Not enough permissions');
         }
 
-        // Mongoose automatically casts the id to ObjectID
-        const user = await User.findById(id).select(['_id', 'username', 'role']);
-        if (!user) throw new NotFoundError(`User with ID ${id} not found`);
+        const user = getUser(id);
+        const updatedUser = updateUser(id, username || user.username, role || user.role);
 
-        // Edit the properties
-        if (username) user.username = username;
-        if (role) user.role = role;
-
-        // Save and catch all validation errors
-        try {
-            await user.save();
-        } catch (e) {
-            const error = e as Error.ValidationError;
-            throw new ClientError(processErrors(error));
-        }
-
-        res.status(204).type('json').send(user.toJSON());
+        res.status(204).type('json').send(updatedUser);
     };
 
     static deleteUser = async (req: Request, res: Response, next: NextFunction) => {
         // Get the ID from the url
         const id = req.params.id;
 
-        // Mongoose automatically casts the id to ObjectID
-        const user = await User.findById(id).select(['_id', 'username', 'role']);
-        if (!user) throw new NotFoundError(`User with ID ${id} not found`);
-
-        await user.delete();
+        deleteUser(id);
 
         // After all send a 204 (no content, but accepted) response
         res.status(204).type('json').send();
