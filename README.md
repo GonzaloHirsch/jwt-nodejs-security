@@ -541,6 +541,15 @@ The JWT configuration will require an authorization header with a bearer token:
 Authorization: Bearer <TOKEN>
 ```
 
+### Adding JWT Dependencies
+
+The following dependencies will be used:
+
+```bash
+npm install @types/jsonwebtoken --save-dev
+npm install jsonwebtoken
+```
+
 ### JWT Secrets
 
 For this set up we will be using `HS256` as the algorithm for JWT. We need a secret in order to sign the payload. For this we will use the `Node` CLI to generate a secret:
