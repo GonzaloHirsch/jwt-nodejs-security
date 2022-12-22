@@ -1,4 +1,6 @@
+// Import required Express types.
 import { Request, Response, NextFunction } from 'express';
+// Import our custom error.
 import { CustomError, IResponseError } from '../exceptions/customError';
 
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {

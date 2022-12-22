@@ -1,24 +1,33 @@
 import { NextFunction, Request, Response } from 'express';
+// Import general JWT functionality.
 import { sign } from 'jsonwebtoken';
+
+// Import the JWT request definition for changing user passwords.
 import { CustomRequest } from '../middleware/checkJwt';
+
+// Import our API configuration information.
 import config from '../config';
+
+// Import custom error types.
 import { ClientError } from '../exceptions/clientError';
 import { UnauthorizedError } from '../exceptions/unauthorizedError';
+
+// Import our user helper functions and access to the stored user information.
 import { getUserByUsername, isPasswordCorrect, changePassword } from '../state/users';
 
 class AuthController {
     static login = async (req: Request, res: Response, next: NextFunction) => {
-        // Check if username and password are set
+        // Ensure the username and password are provided.
+        // Throw an exception back to the client if those values are missing.
         let { username, password } = req.body;
         if (!(username && password)) throw new ClientError('Username and password are required');
 
-        // Get user from database
         const user = getUserByUsername(username);
 
-        // Check if encrypted password match
+        // Check if the provided password matches our encrypted password.
         if (!user || !(await isPasswordCorrect(user.id, password))) throw new UnauthorizedError("Username and password don't match");
 
-        // Sing JWT, valid for 1 hour
+        // Generate and sign a JWT that is valid for one hour.
         const token = sign({ userId: user.id, username: user.username, role: user.role }, config.jwt.secret!, {
             expiresIn: '1h',
             notBefore: '0', // Cannot use before now, can be configured to be deferred
@@ -27,22 +36,24 @@ class AuthController {
             issuer: config.jwt.issuer
         });
 
-        // Send the jwt in the response
+        // Return the JWT in our response.
         res.type('json').send({ token: token });
     };
 
     static changePassword = async (req: Request, res: Response, next: NextFunction) => {
-        // Get ID from JWT
+        // Retrieve the user ID from the incoming JWT.
         const id = (req as CustomRequest).token.payload.userId;
 
-        // Get parameters from the body
+        // Get the provided parameters from the request body.
         const { oldPassword, newPassword } = req.body;
         if (!(oldPassword && newPassword)) throw new ClientError("Passwords don't match");
 
-        // Check if password is ok
+        // Check if old password matches our currently stored password, then we proceed.
+        // Throw an error back to the client if the old password is mismatched.
         if (!(await isPasswordCorrect(id, oldPassword))) throw new UnauthorizedError("Old password doesn't match");
 
-        // Call to update the password
+        // Update the user password.
+        // Note: We will not hit this code if the old password compare failed.
         await changePassword(id, newPassword);
 
         res.status(204).send();

@@ -1,66 +1,83 @@
 import bcrypt from 'bcrypt';
+// Let's support these exceptions to be handled through handlers
 import { NotFoundError } from '../exceptions/notFoundError';
 import { ValidationError } from '../exceptions/validationError';
 
+// Define the code interface for user objects.
 export interface IUser {
     id: string;
     username: string;
-    // Password is marked as optional in order to be able to return it without it
-    // We still verify it's not empty when creating a user
+    // The password is marked as optional to allow us to return this structure
+    // without a password value. We'll validate it is not empty when creating a user.
     password?: string;
     role: Roles;
 }
 
+// Our API supports both an admin and regular user, as defined by a role.
 export enum Roles {
     ADMIN = 'ADMIN',
     USER = 'USER'
 }
 
+// Let's initialize our example API with some user records.
+// NOTE: We generate passwords using the Node.js CLI with this command
+// "await require('bcrypt').hash('PASSWORD_TO_HASH', 12)"
 let users: { [id: string]: IUser } = {
     '0': {
         id: '0',
         username: 'testuser1',
-        password: '$2b$12$ov6s318JKzBIkMdSMvHKdeTMHSYMqYxCI86xSHL9Q1gyUpwd66Q2e', // testuser1_password
+        // Plaintext password: testuser1_password
+        password: '$2b$12$ov6s318JKzBIkMdSMvHKdeTMHSYMqYxCI86xSHL9Q1gyUpwd66Q2e',
         role: Roles.USER
     },
     '1': {
         id: '1',
         username: 'testuser2',
-        password: '$2b$12$63l0Br1wIniFBFUnHaoeW.55yh8.a3QcpCy7hYt9sfaIDg.rnTAPC', // testuser2_password
+        // Plaintext password: testuser2_password
+        password: '$2b$12$63l0Br1wIniFBFUnHaoeW.55yh8.a3QcpCy7hYt9sfaIDg.rnTAPC',
         role: Roles.USER
     },
     '2': {
         id: '2',
         username: 'testuser3',
-        password: '$2b$12$fTu/nKtkTsNO91tM7wd5yO6LyY1HpyMlmVUE9SM97IBg8eLMqw4mu', // testuser3_password
+        // Plaintext password: testuser3_password
+        password: '$2b$12$fTu/nKtkTsNO91tM7wd5yO6LyY1HpyMlmVUE9SM97IBg8eLMqw4mu',
         role: Roles.USER
     },
     '3': {
         id: '3',
         username: 'testadmin1',
-        password: '$2b$12$tuzkBzJWCEqN1DemuFjRuuEs4z3z2a3S5K0fRukob/E959dPYLE3i', // testadmin1_password
+        // Plaintext password: testadmin1_password
+        password: '$2b$12$tuzkBzJWCEqN1DemuFjRuuEs4z3z2a3S5K0fRukob/E959dPYLE3i',
         role: Roles.ADMIN
     },
     '4': {
         id: '4',
         username: 'testadmin2',
-        password: '$2b$12$.dN3BgEeR0YdWMFv4z0pZOXOWfQUijnncXGz.3YOycHSAECzXQLdq', // testadmin2_password
+        // Plaintext password: testadmin2_password
+        password: '$2b$12$.dN3BgEeR0YdWMFv4z0pZOXOWfQUijnncXGz.3YOycHSAECzXQLdq',
         role: Roles.ADMIN
     }
 };
+
 let nextUserId = Object.keys(users).length;
 
-const generateSafeCopy = (user : IUser) : IUser => {
+// NOTE: Validation errors are handled directly within these functions.
+
+// Generate a copy of the users without their passwords.
+const generateSafeCopy = (user: IUser): IUser => {
     let _user = { ...user };
     delete _user.password;
     return _user;
-}
+};
 
+// Recover a user if present.
 export const getUser = (id: string): IUser => {
     if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
     return generateSafeCopy(users[id]);
 };
 
+// Recover a user based on username if present, but using the username as a the query
 export const getUserByUsername = (username: string): IUser | undefined => {
     const possibleUsers = Object.values(users).filter((user) => user.username === username);
     // Undefined if no user with that username
@@ -68,10 +85,8 @@ export const getUserByUsername = (username: string): IUser | undefined => {
     return generateSafeCopy(possibleUsers[0]);
 };
 
-export const getAllUsers = (restrictedView: boolean): IUser[] => {
-    return Object.values(users)
-        .filter((user) => (restrictedView && user.role === Roles.USER) || !restrictedView)
-        .map((elem) => generateSafeCopy(elem));
+export const getAllUsers = (): IUser[] => {
+    return Object.values(users).map((elem) => generateSafeCopy(elem));
 };
 
 export const createUser = async (username: string, password: string, role: Roles): Promise<IUser> => {
@@ -125,7 +140,7 @@ export const isPasswordCorrect = async (id: string, password: string): Promise<b
 
 export const changePassword = async (id: string, password: string) => {
     if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
-    
+
     password = password.trim();
     // todo: Add checks according to use case
     if (password.length === 0) throw new ValidationError('Invalid password');

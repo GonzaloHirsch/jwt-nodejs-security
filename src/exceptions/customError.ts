@@ -1,3 +1,4 @@
+// Note: Our custom error extends from Error, so we can throw this error as an exception.
 export class CustomError extends Error {
     message!: string;
     status!: number;
@@ -9,7 +10,7 @@ export class CustomError extends Error {
         this.status = status;
         this.additionalInfo = additionalInfo;
     }
-};
+}
 
 export interface IResponseError {
     message: string;
