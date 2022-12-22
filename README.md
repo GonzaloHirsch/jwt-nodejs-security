@@ -46,7 +46,7 @@ npx tsc --init
 
 With the project folder and dependencies in place, we now define our API project.
 
-## Configure the API Environment
+## Configure the API Environment
 
 The project will use system environment values within our code. To that end, we’ll create a new configuration file, `src/config/index.ts`, that retrieves environment variables from the operating system, making them available to our code:
 
