@@ -946,7 +946,7 @@ In order to test our API, it needs to be running. Start our project up.
 npm run start
 ```
 
-We'll use Postman to test our API. Please ensure it is installed.
+We'll use [Postman](https://www.postman.com/downloads/) to test our API. Please ensure it is installed.
 
 Within Postman, we need to create two requests: one for authenticating a user, and another to use the returned JWT to make a call against one of our API's endpoints. Let's create the authentication request:
 
