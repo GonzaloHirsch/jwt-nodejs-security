@@ -82,7 +82,7 @@ The `dotenv` library allows environment variables to be set in either the operat
 - `PORT`
 - `API_PREFIX`
 
-Your `.env` file should look something like the example provided in our repository. With the basic API configuration complete, we now move into coding our API's storage.
+Your `.env` file should look something like the [example](./.env.example) provided in our repository. With the basic API configuration complete, we now move into coding our API's storage.
 
 ## Setup In-memory Storage
 
@@ -946,6 +946,36 @@ In order to test our API, it needs to be running. Start our project up.
 npm run start
 ```
 
-To test the API, we provide a Postman collection with example requests that anyone can try.
+We'll use Postman to test our API. Please ensure it is installed.
+
+Within Postman, we need to create two requests: one for authenticating a user, and another to use the returned JWT to make a call against one of our API's endpoints. Let's create the authentication request:
+
+1. Create a new POST request for user authentication.
+2. Name this request "JWT Node.js Authentication". 
+3. Set the request's address to `localhost:3000/api/auth/login`.
+4. Set the body type to raw and `JSON`.
+5. Update the body to contain this JSON value:
+    ```json
+    {
+        "username": "testadmin1testuser1",
+        "password": "testadmin1_passwordtestuser1_password"
+    }
+    ```
+6. Run the request in Postman.
+7. Save the return JWT information for our next call.
+
+Now that we have a JWT for our test user, we'll create another request to test one of our endpoints to get the available USER records:
+
+1. Create a new GET request for user authentication.
+2. Name this request "JWT Node.js Get Users". 
+3. Set the request's address to `localhost:3000/api/users`.
+4. On the request's authorization tab, set the type to "Bearer Token".
+5. Copy the return JWT from our previous request into the "Token" field on this tab.
+6. Run the request in Postman.
+7. View the user list returned by our API.
+
+Obviously, this is just one test of our API, but the same pattern may be followed to fully explore the API calls and test our authorization logic.
+
+To easily test the API, we provide a Postman collection with example requests that anyone can try.
 
 [![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/17051991-d520f5b0-748b-4bf9-b506-6ab1daf542c7?action=collection%2Ffork&collection-url=entityId%3D17051991-d520f5b0-748b-4bf9-b506-6ab1daf542c7%26entityType%3Dcollection%26workspaceId%3D1ff03695-0923-4c9c-a217-2fd2f17f0c11)
