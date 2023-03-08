@@ -1,6 +1,4 @@
-// Import required Express types.
 import { Request, Response, NextFunction } from 'express';
-// Import our custom error.
 import { CustomError, IResponseError } from '../exceptions/customError';
 
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
@@ -16,7 +14,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
         let response = {
             message: customError.message
         } as IResponseError;
-        // Check if more info to return
+        // Check if there is more info to return.
         if (customError.additionalInfo) response.additionalInfo = customError.additionalInfo;
         res.status(customError.status).type('json').send(JSON.stringify(response));
     }

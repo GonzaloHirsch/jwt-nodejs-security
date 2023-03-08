@@ -1,11 +1,7 @@
-// Add Express to our application.
 import express from 'express';
 import { json } from 'body-parser';
 import routes from './routes/index';
-
-// Middleware.
 import { errorHandler } from './middleware/errorHandler';
-// Add our configuration information.
 import config from './config';
 
 // Instantiate an Express object.

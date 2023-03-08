@@ -51,13 +51,12 @@ With the project folder and dependencies in place, we now define our API project
 The project will use system environment values within our code. To that end, we’ll create a new configuration file, `src/config/index.ts`, that retrieves environment variables from the operating system, making them available to our code:
 
 ```typescript
-// Add the dotenv library to programmatically access system environment variables.
 import * as dotenv from 'dotenv';
 dotenv.config();
 
 // Create a configuration object to hold those environment variables.
 const config = {
-    // JWT important variables
+    // JWT important variables.
     jwt: {
         // The secret is used to sign and validate signatures.
         secret: process.env.JWT_SECRET,
@@ -90,7 +89,6 @@ To avoid the complexities that come with having a fully-fledged database, we’l
 
 ```typescript
 import bcrypt from 'bcrypt';
-// Let's support these exceptions to be handled through handlers
 import { NotFoundError } from '../exceptions/notFoundError';
 import { ValidationError } from '../exceptions/validationError';
 
@@ -111,7 +109,7 @@ export enum Roles {
 }
 
 // Let's initialize our example API with some user records.
-// NOTE: We generate passwords using the Node.js CLI with this command.
+// NOTE: We generate passwords using the Node.js CLI with this command:
 // "await require('bcrypt').hash('PASSWORD_TO_HASH', 12)"
 let users: { [id: string]: IUser } = {
     '0': {
@@ -166,7 +164,7 @@ Let's create a new file `src/middleware/asyncHandler.ts` with the following cont
 import { NextFunction, Request, Response } from 'express';
 
 /**
- * Async handler to wrap the API routes, this allows for async error handling.
+ * Async handler to wrap the API routes, allowing for async error handling.
  * @param fn Function to call for the API endpoint
  * @returns Promise with a catch statement
  */
@@ -201,9 +199,7 @@ export interface IResponseError {
 Now, we create our error handler in the file `src/middleware/errorHandler.ts`:
 
 ```typescript
-// Import required Express types.
 import { Request, Response, NextFunction } from 'express';
-// Import our custom error.
 import { CustomError, IResponseError } from '../exceptions/customError';
 
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction) {
@@ -219,7 +215,7 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
         let response = {
             message: customError.message
         } as IResponseError;
-        // Check if more info to return
+        // Check if there is more info to return.
         if (customError.additionalInfo) response.additionalInfo = customError.additionalInfo;
         res.status(customError.status).type('json').send(JSON.stringify(response));
     }
@@ -229,7 +225,6 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
 With all this error handling in place, we can add this support to our API within the `src/index.ts` file:
 
 ```typescript
-// Add this import to the top import block
 import { errorHandler } from './middleware/errorHandler';
 
 // Add error handling as the last middleware, just prior to our app.listen call.
@@ -308,14 +303,9 @@ With the basic project and error handling functions implemented, let's define ou
 We're using [Express](https://expressjs.com/) to easily add API support to our application. Let's create a new file `src/index.ts` to define our API's entrypoint:
 
 ```typescript
-// Add Express to our application.
 import express from 'express';
 import { json } from 'body-parser';
-
-// Import out custom error handler.
 import { errorHandler } from './middleware/errorHandler';
-
-// Add our configuration information.
 import config from './config';
 
 // Instantiate an Express object.
@@ -345,10 +335,9 @@ We need to update the npm-generated `package.json` file to add our just-created 
 Next, our API needs its routes defined, and to have those routes redirect to their handlers. Let's create a `src/routes/index.ts` file to link user operation routes into our application. Note: the route specifics and their handler definitions are defined afterwards.
 
 ```typescript
-// We'll use Express to route incoming requests to handlers.
 import { Router } from 'express';
-// Add the user routes and make them available to our API.
 import user from './user';
+
 const routes = Router();
 // All user operations will be available under the "users" route prefix.
 routes.use('/users', user);
@@ -359,7 +348,6 @@ export default routes;
 We need to include these routes in the `src/index.ts` file by importing our route object and then asking our application to use those routes. For reference, the [finished file version](./src/index.ts) may be used to compare with your edited file.
 
 ```typescript
-// Add this import to the top.
 import routes from './routes/index';
 
 // Add our route object to the Express object. 
@@ -374,8 +362,6 @@ Now that our API is awaiting the actual user routes and their handler definition
 ```typescript
 import { Router } from 'express';
 import UserController from '../controllers/UserController';
-
-// Middleware.
 import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
@@ -400,8 +386,7 @@ router.delete('/:id([0-9a-z]{24})', [], asyncHandler(UserController.deleteUser))
 The routes will call handler methods within our `UserController`, but those methods will rely on helper functions to operate on our user information.Let's add those helper functions now before we define the controller. We'll add  these functions at the tailend of our `src/state/users.ts` file:
 
 ```typescript
-//... Place these functions at the end of the file.
-
+// Place these functions at the end of the file.
 // NOTE: Validation errors are handled directly within these functions.
 
 // Generate a copy of the users without their passwords.
@@ -417,10 +402,10 @@ export const getUser = (id: string): IUser => {
     return generateSafeCopy(users[id]);
 };
 
-// Recover a user based on username if present, but using the username as a the query
+// Recover a user based on username if present, using the username as a the query.
 export const getUserByUsername = (username: string): IUser | undefined => {
     const possibleUsers = Object.values(users).filter((user) => user.username === username);
-    // Undefined if no user with that username
+    // Undefined if no user exists with that username.
     if (possibleUsers.length == 0) return undefined;
     return generateSafeCopy(possibleUsers[0]);
 };
@@ -438,16 +423,16 @@ export const createUser = async (username: string, password: string, role: Roles
     username = username.trim();
     password = password.trim();
 
-    // todo: Add checks according to use case
+    // Reader: Add checks according to your custom use case.
     if (username.length === 0) throw new ValidationError('Invalid username');
     else if (password.length === 0) throw new ValidationError('Invalid password');
-    // Check for duplicates
+    // Check for duplicates.
     if (getUserByUsername(username) != undefined) throw new ValidationError('Username is taken');
 
-    // Generate a user id
+    // Generate a user id.
     const id: string = nextUserId.toString();
     nextUserId++;
-    // Create the user
+    // Create the user.
     users[id] = {
         username,
         password: await bcrypt.hash(password, 12),
@@ -458,16 +443,16 @@ export const createUser = async (username: string, password: string, role: Roles
 };
 
 export const updateUser = (id: string, username: string, role: Roles): IUser => {
-    // Check user exists
+    // Check that user exists.
     if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
 
-    // todo: Add checks according to use case
+    // Reader: Add checks according to your custom use case.
     if (username.trim().length === 0) throw new ValidationError('Invalid username');
     username = username.trim();
     const userIdWithUsername = getUserByUsername(username)?.id;
     if (userIdWithUsername !== undefined && userIdWithUsername !== id) throw new ValidationError('Username is taken');
 
-    // Apply changes
+    // Apply the changes.
     users[id].username = username;
     users[id].role = role;
     return generateSafeCopy(users[id]);
@@ -487,10 +472,10 @@ export const changePassword = async (id: string, password: string) => {
     if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
     
     password = password.trim();
-    // todo: Add checks according to use case
+    // Reader: Add checks according to your custom use case.
     if (password.length === 0) throw new ValidationError('Invalid password');
 
-    // Store encrypted password
+    // Store encrypted password.
     users[id].password = await bcrypt.hash(password, 12);
 };
 ```
@@ -499,7 +484,6 @@ The final part of our route handling requires the creation of our `UserControlle
 
 ```typescript
 import { NextFunction, Request, Response } from 'express';
-// Import and make our user helper function available within this controller.
 import { getAllUsers, Roles, getUser, createUser, updateUser, deleteUser } from '../state/users';
 
 class UserController {
@@ -610,20 +594,11 @@ Our API's authentication and authorization functionality requires user endpoints
 
 ```typescript
 import { NextFunction, Request, Response } from 'express';
-// Import general JWT functionality.
 import { sign } from 'jsonwebtoken';
-
-// Import the JWT request definition for changing user passwords.
 import { CustomRequest } from '../middleware/checkJwt';
-
-// Import our API configuration information.
 import config from '../config';
-
-// Import custom error types.
 import { ClientError } from '../exceptions/clientError';
 import { UnauthorizedError } from '../exceptions/unauthorizedError';
-
-// Import our user helper functions and access to the stored user information.
 import { getUserByUsername, isPasswordCorrect, changePassword } from '../state/users';
 
 class AuthController {
@@ -641,7 +616,7 @@ class AuthController {
         // Generate and sign a JWT that is valid for one hour.
         const token = sign({ userId: user.id, username: user.username, role: user.role }, config.jwt.secret!, {
             expiresIn: '1h',
-            notBefore: '0', // Cannot use before now, can be configured to be deferred
+            notBefore: '0', // Cannot use before now, can be configured to be deferred.
             algorithm: 'HS256',
             audience: config.jwt.audience,
             issuer: config.jwt.issuer
@@ -686,7 +661,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verify, JwtPayload } from 'jsonwebtoken';
 import config from '../config';
 
-// The CustomRequest interface allows provided JWTs to our controllers.
+// The CustomRequest interface allows providing JWTs to our controllers.
 export interface CustomRequest extends Request {
     token: JwtPayload;
 }
@@ -782,8 +757,6 @@ Now we completely replace the contents of our user routes file, `src/routes/user
 import { Router } from 'express';
 import UserController from '../controllers/UserController';
 import { Roles } from '../state/users';
-
-// Import middleware definitions.
 import { asyncHandler } from '../middleware/asyncHandler';
 import { checkJwt } from '../middleware/checkJwt';
 import { checkRole } from '../middleware/checkRole';
@@ -814,10 +787,9 @@ Each endpoint validates the incoming JWT with `checkJwt` and then authorizes the
 To finish integrating the authentication routes, we need to attach our authentication and user routes to our API's route list in the `src/routes/index.ts` file (this is a complete file listing):
 
 ```typescript
-// We'll use Express to route incoming requests to handlers.
 import { Router } from 'express';
-// Add the user routes and make them available to our API.
 import user from './user';
+
 const routes = Router();
 // All auth operations will be available under the "auth" route prefix.
 routes.use('/auth', auth);
@@ -842,9 +814,7 @@ We update the `src/controllers/UserController.ts` file with this in mind:
 
 ```typescript
 import { NextFunction, Request, Response } from 'express';
-// Import and make our user helper function available within this controller.
 import { getAllUsers, Roles, getUser, createUser, updateUser, deleteUser } from '../state/users';
-// New code: Import our custom errors and the checkJwt's CustomRequest interface.
 import { ForbiddenError } from '../exceptions/forbiddenError';
 import { ValidationError } from '../exceptions/validationError';
 import { CustomRequest } from '../middleware/checkJwt';
@@ -876,19 +846,19 @@ class UserController {
 
     static newUser = async (req: Request, res: Response, next: NextFunction) => {
         // NOTE: No change to this function.
-        // Get the user name and password
+        // Get the user name and password.
         let { username, password } = req.body;
         // We can only create regular users through this function.
         const user = await createUser(username, password, Roles.USER);
 
         // NOTE: We will only get here if all new user information 
         // is valid and the user was created.
-        // Send an HTTP "Created" response
+        // Send an HTTP "Created" response.
         res.status(201).type('json').send(user);
     };
 
     static editUser = async (req: Request, res: Response, next: NextFunction) => {
-        // Get the user ID
+        // Get the user ID.
         const id = req.params.id;
 
         // New code: Restrict USER requestors to edit their own record.
@@ -901,11 +871,11 @@ class UserController {
         const { username, role } = req.body;
 
         // New code: Do not allow USERs to change themselves to an ADMIN.
-        // Verify you cannot make yourself an admin if you are a user
+        // Verify you cannot make yourself an admin if you are a user.
         if ((req as CustomRequest).token.payload.role === Roles.USER && role === Roles.ADMIN) {
             throw new ForbiddenError('Not enough permissions');
         }
-        // Verify the role is correct
+        // Verify the role is correct.
         else if (!Object.values(Roles).includes(role)) 
              throw new ValidationError('Invalid role');
 
@@ -915,20 +885,20 @@ class UserController {
 
         // NOTE: We will only get here if all new user information. 
         // is valid and the user was updated.
-        // Send an HTTP "No Content" response
+        // Send an HTTP "No Content" response.
         res.status(204).type('json').send(updatedUser);
     };
 
     static deleteUser = async (req: Request, res: Response, next: NextFunction) => {
         // NOTE: No change to this function.
-        // Get the ID from the URL
+        // Get the ID from the URL.
         const id = req.params.id;
 
         deleteUser(id);
 
         // NOTE: We will only get here if we found a user with the requested ID and    
         // deleted it.
-        // Send an HTTP "No Content" response
+        // Send an HTTP "No Content" response.
         res.status(204).type('json').send();
     };
 }

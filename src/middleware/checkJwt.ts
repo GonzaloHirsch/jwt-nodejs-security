@@ -2,16 +2,17 @@ import { Request, Response, NextFunction } from 'express';
 import { verify, JwtPayload } from 'jsonwebtoken';
 import config from '../config';
 
+// The CustomRequest interface allows providing JWTs to our controllers.
 export interface CustomRequest extends Request {
     token: JwtPayload;
 }
 
 export const checkJwt = (req: Request, res: Response, next: NextFunction) => {
-    // Get the jwt token from the head
+    // Get the jwt token from the head.
     const token = <string>req.headers['authorization'];
     let jwtPayload;
 
-    // Try to validate the token and get data
+    // Try to validate the token and get data.
     try {
         jwtPayload = <any>verify(token?.split(' ')[1], config.jwt.secret!, {
             complete: true,
@@ -30,6 +31,6 @@ export const checkJwt = (req: Request, res: Response, next: NextFunction) => {
         return;
     }
 
-    // Call the next middleware or controller
+    // Call the next middleware or controller.
     next();
 };

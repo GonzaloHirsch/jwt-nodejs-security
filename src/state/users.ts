@@ -1,5 +1,4 @@
 import bcrypt from 'bcrypt';
-// Let's support these exceptions to be handled through handlers
 import { NotFoundError } from '../exceptions/notFoundError';
 import { ValidationError } from '../exceptions/validationError';
 
@@ -20,7 +19,7 @@ export enum Roles {
 }
 
 // Let's initialize our example API with some user records.
-// NOTE: We generate passwords using the Node.js CLI with this command
+// NOTE: We generate passwords using the Node.js CLI with this command:
 // "await require('bcrypt').hash('PASSWORD_TO_HASH', 12)"
 let users: { [id: string]: IUser } = {
     '0': {
@@ -77,10 +76,10 @@ export const getUser = (id: string): IUser => {
     return generateSafeCopy(users[id]);
 };
 
-// Recover a user based on username if present, but using the username as a the query
+// Recover a user based on username if present, using the username as a the query.
 export const getUserByUsername = (username: string): IUser | undefined => {
     const possibleUsers = Object.values(users).filter((user) => user.username === username);
-    // Undefined if no user with that username
+    // Undefined if no user exists with that username.
     if (possibleUsers.length == 0) return undefined;
     return generateSafeCopy(possibleUsers[0]);
 };
@@ -93,16 +92,16 @@ export const createUser = async (username: string, password: string, role: Roles
     username = username.trim();
     password = password.trim();
 
-    // todo: Add checks according to use case
+    // Reader: Add checks according to your custom use case.
     if (username.length === 0) throw new ValidationError('Invalid username');
     else if (password.length === 0) throw new ValidationError('Invalid password');
-    // Check for duplicates
+    // Check for duplicates.
     if (getUserByUsername(username) != undefined) throw new ValidationError('Username is taken');
 
-    // Generate a user id
+    // Generate a user id.
     const id: string = nextUserId.toString();
     nextUserId++;
-    // Create the user
+    // Create the user.
     users[id] = {
         username,
         password: await bcrypt.hash(password, 12),
@@ -113,16 +112,16 @@ export const createUser = async (username: string, password: string, role: Roles
 };
 
 export const updateUser = (id: string, username: string, role: Roles): IUser => {
-    // Check user exists
+    // Check that user exists.
     if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
 
-    // todo: Add checks according to use case
+    // Reader: Add checks according to your custom use case.
     if (username.trim().length === 0) throw new ValidationError('Invalid username');
     username = username.trim();
     const userIdWithUsername = getUserByUsername(username)?.id;
     if (userIdWithUsername !== undefined && userIdWithUsername !== id) throw new ValidationError('Username is taken');
 
-    // Apply changes
+    // Apply the changes.
     users[id].username = username;
     users[id].role = role;
     return generateSafeCopy(users[id]);
@@ -142,9 +141,9 @@ export const changePassword = async (id: string, password: string) => {
     if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
 
     password = password.trim();
-    // todo: Add checks according to use case
+    // Reader: Add checks according to your custom use case.
     if (password.length === 0) throw new ValidationError('Invalid password');
 
-    // Store encrypted password
+    // Store encrypted password.
     users[id].password = await bcrypt.hash(password, 12);
 };

@@ -1,18 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
-// Import general JWT functionality.
 import { sign } from 'jsonwebtoken';
-
-// Import the JWT request definition for changing user passwords.
 import { CustomRequest } from '../middleware/checkJwt';
-
-// Import our API configuration information.
 import config from '../config';
-
-// Import custom error types.
 import { ClientError } from '../exceptions/clientError';
 import { UnauthorizedError } from '../exceptions/unauthorizedError';
-
-// Import our user helper functions and access to the stored user information.
 import { getUserByUsername, isPasswordCorrect, changePassword } from '../state/users';
 
 class AuthController {
@@ -30,7 +21,7 @@ class AuthController {
         // Generate and sign a JWT that is valid for one hour.
         const token = sign({ userId: user.id, username: user.username, role: user.role }, config.jwt.secret!, {
             expiresIn: '1h',
-            notBefore: '0', // Cannot use before now, can be configured to be deferred
+            notBefore: '0', // Cannot use before now, can be configured to be deferred.
             algorithm: 'HS256',
             audience: config.jwt.audience,
             issuer: config.jwt.issuer

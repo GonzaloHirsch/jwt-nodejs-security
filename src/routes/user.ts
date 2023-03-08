@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import UserController from '../controllers/UserController';
 import { Roles } from '../state/users';
-
-// Middleware.
 import { asyncHandler } from '../middleware/asyncHandler';
 import { checkJwt } from '../middleware/checkJwt';
 import { checkRole } from '../middleware/checkRole';

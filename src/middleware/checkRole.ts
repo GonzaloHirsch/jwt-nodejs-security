@@ -4,7 +4,7 @@ import { getUser, Roles } from '../state/users';
 
 export const checkRole = (roles: Array<Roles>) => {
     return async (req: Request, res: Response, next: NextFunction) => {
-        // Find the user within the database
+        // Find the user within the database.
         const user = getUser((req as CustomRequest).token.payload.userId);
 
         if (!user) {
@@ -14,7 +14,7 @@ export const checkRole = (roles: Array<Roles>) => {
             return;
         }
 
-        // Check if array of authorized roles includes the user's role
+        // Check if array of authorized roles includes the user's role.
         if (roles.indexOf(user.role) > -1) next();
         else {
             res.status(403)

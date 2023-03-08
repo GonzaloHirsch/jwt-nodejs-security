@@ -2,7 +2,6 @@ import { NextFunction, Request, Response } from 'express';
 import { ForbiddenError } from '../exceptions/forbiddenError';
 import { ValidationError } from '../exceptions/validationError';
 import { CustomRequest } from '../middleware/checkJwt';
-// Import and make our user helper function available within this controller.
 import { getAllUsers, Roles, getUser, createUser, updateUser, deleteUser } from '../state/users';
 
 class UserController {
@@ -17,7 +16,7 @@ class UserController {
         // Get the ID from the URL.
         const id: string = req.params.id;
 
-        // Validate permissions
+        // Validate permissions.
         if ((req as CustomRequest).token.payload.role === Roles.USER && req.params.id !== (req as CustomRequest).token.payload.userId) {
             throw new ForbiddenError('Not enough permissions');
         }
@@ -30,7 +29,7 @@ class UserController {
     };
 
     static newUser = async (req: Request, res: Response, next: NextFunction) => {
-        // Get the username and password.
+        // Get the user name and password.
         let { username, password } = req.body;
         // We can only create regular users through this function.
         const user = await createUser(username, password, Roles.USER);

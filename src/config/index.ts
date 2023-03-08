@@ -1,4 +1,3 @@
-// Add the dotenv library to programmatically access system environment variables.
 import * as dotenv from 'dotenv';
 dotenv.config();
 
