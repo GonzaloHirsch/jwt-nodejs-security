@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { NotFoundError } from '../exceptions/notFoundError';
-import { ValidationError } from '../exceptions/validationError';
+import { ClientError } from '../exceptions/clientError';
 
 // Define the code interface for user objects.
 export interface IUser {
@@ -93,10 +93,10 @@ export const createUser = async (username: string, password: string, role: Roles
     password = password.trim();
 
     // Reader: Add checks according to your custom use case.
-    if (username.length === 0) throw new ValidationError('Invalid username');
-    else if (password.length === 0) throw new ValidationError('Invalid password');
+    if (username.length === 0) throw new ClientError('Invalid username');
+    else if (password.length === 0) throw new ClientError('Invalid password');
     // Check for duplicates.
-    if (getUserByUsername(username) != undefined) throw new ValidationError('Username is taken');
+    if (getUserByUsername(username) != undefined) throw new ClientError('Username is taken');
 
     // Generate a user id.
     const id: string = nextUserId.toString();
@@ -116,10 +116,10 @@ export const updateUser = (id: string, username: string, role: Roles): IUser => 
     if (!(id in users)) throw new NotFoundError(`User with ID ${id} not found`);
 
     // Reader: Add checks according to your custom use case.
-    if (username.trim().length === 0) throw new ValidationError('Invalid username');
+    if (username.trim().length === 0) throw new ClientError('Invalid username');
     username = username.trim();
     const userIdWithUsername = getUserByUsername(username)?.id;
-    if (userIdWithUsername !== undefined && userIdWithUsername !== id) throw new ValidationError('Username is taken');
+    if (userIdWithUsername !== undefined && userIdWithUsername !== id) throw new ClientError('Username is taken');
 
     // Apply the changes.
     users[id].username = username;
@@ -142,7 +142,7 @@ export const changePassword = async (id: string, password: string) => {
 
     password = password.trim();
     // Reader: Add checks according to your custom use case.
-    if (password.length === 0) throw new ValidationError('Invalid password');
+    if (password.length === 0) throw new ClientError('Invalid password');
 
     // Store encrypted password.
     users[id].password = await bcrypt.hash(password, 12);

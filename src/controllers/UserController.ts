@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import { ForbiddenError } from '../exceptions/forbiddenError';
-import { ValidationError } from '../exceptions/validationError';
+import { ClientError } from '../exceptions/clientError';
 import { CustomRequest } from '../middleware/checkJwt';
 import { getAllUsers, Roles, getUser, createUser, updateUser, deleteUser } from '../state/users';
 
@@ -57,7 +57,7 @@ class UserController {
             throw new ForbiddenError('Not enough permissions');
         }
         // Verify the role is correct.
-        else if (!Object.values(Roles).includes(role)) throw new ValidationError('Invalid role');
+        else if (!Object.values(Roles).includes(role)) throw new ClientError('Invalid role');
 
         // Retrieve and update the user record.
         const user = getUser(id);
