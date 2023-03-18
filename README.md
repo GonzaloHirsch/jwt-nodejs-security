@@ -97,7 +97,7 @@ export interface IUser {
     id: string;
     username: string;
     // The password is marked as optional to allow us to return this structure 
-    // without a password value. We'll validate it is not empty when creating a user.
+    // without a password value. We'll validate that it is not empty when creating a user.
     password?: string;
     role: Roles;
 }
@@ -390,7 +390,7 @@ export const getUser = (id: string): IUser => {
     return generateSafeCopy(users[id]);
 };
 
-// Recover a user based on username if present, using the username as a the query.
+// Recover a user based on username if present, using the username as the query.
 export const getUserByUsername = (username: string): IUser | undefined => {
     const possibleUsers = Object.values(users).filter((user) => user.username === username);
     // Undefined if no user exists with that username.
@@ -859,7 +859,7 @@ class UserController {
         const { username, role } = req.body;
 
         // New code: Do not allow USERs to change themselves to an ADMIN.
-        // Verify you cannot make yourself an admin if you are a user.
+        // Verify you cannot make yourself an ADMIN if you are a USER.
         if ((req as CustomRequest).token.payload.role === Roles.USER && role === Roles.ADMIN) {
             throw new ForbiddenError('Not enough permissions');
         }
@@ -871,7 +871,7 @@ class UserController {
         const user = getUser(id);
         const updatedUser = updateUser(id, username || user.username, role || user.role);
 
-        // NOTE: We will only get here if all new user information. 
+        // NOTE: We will only get here if all new user information
         // is valid and the user was updated.
         // Send an HTTP "No Content" response.
         res.status(204).type('json').send(updatedUser);

@@ -52,7 +52,7 @@ class UserController {
         // Get values from the body.
         const { username, role }: { username: string; role: Roles } = req.body;
 
-        // Verify you cannot make yourself an admin if you are a user.
+        // Verify you cannot make yourself an ADMIN if you are a USER.
         if ((req as CustomRequest).token.payload.role === Roles.USER && role === Roles.ADMIN) {
             throw new ForbiddenError('Not enough permissions');
         }

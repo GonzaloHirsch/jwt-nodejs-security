@@ -7,7 +7,7 @@ export interface IUser {
     id: string;
     username: string;
     // The password is marked as optional to allow us to return this structure
-    // without a password value. We'll validate it is not empty when creating a user.
+    // without a password value. We'll validate that it is not empty when creating a user.
     password?: string;
     role: Roles;
 }
@@ -76,7 +76,7 @@ export const getUser = (id: string): IUser => {
     return generateSafeCopy(users[id]);
 };
 
-// Recover a user based on username if present, using the username as a the query.
+// Recover a user based on username if present, using the username as the query.
 export const getUserByUsername = (username: string): IUser | undefined => {
     const possibleUsers = Object.values(users).filter((user) => user.username === username);
     // Undefined if no user exists with that username.
